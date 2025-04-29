@@ -1,0 +1,158 @@
+Rapport Complet et Compte Rendu du Projet Kubernetes avec Helm (appscore)
+Introduction
+Ce rapport présente une analyse détaillée du projet Kubernetes nommé "appscore", déployé à l'aide de Helm. Le but est d'expliquer le fonctionnement de l'application, les difficultés rencontrées, les solutions apportées, ainsi que la démarche suivie pour mener à bien ce projet.
+
+Description de l'Application
+L'application "appscore" est une solution distribuée de type plateforme d'offres d'emploi composée de plusieurs microservices, chacun déployé dans un cluster Kubernetes. Ces services collaborent pour fournir des fonctionnalités métier spécifiques :
+
+Jobs API : Gère les offres d'emploi (création, recherche, consultation)
+Applicants API : Gère les profils des candidats et leurs candidatures
+Identity API : Gère l'authentification et les utilisateurs
+Web Service : Interface utilisateur frontend qui communique avec les APIs
+SQL Server : Base de données pour stocker les offres d'emploi et les candidatures
+Redis : Cache utilisé principalement par le service Identity
+RabbitMQ : Message broker pour la communication asynchrone entre les services
+L'application est exposée via un ingress configuré pour gérer le trafic HTTP/HTTPS, avec un certificat TLS auto-signé pour sécuriser les communications.
+
+Architecture Technique
+Composants Clés
+Frontend : Application web ASP.NET Core MVC
+Microservices Backend :
+API Jobs (ASP.NET Core API connectée à SQL Server)
+API Applicants (ASP.NET Core API connectée à SQL Server)
+API Identity (ASP.NET Core API connectée à Redis)
+Services de données :
+SQL Server (stockage relationnel)
+Redis (cache)
+RabbitMQ (message broker pour la communication événementielle)
+Infrastructure Kubernetes :
+Déploiements pour chaque microservice
+Services pour exposer les microservices
+ConfigMaps pour la configuration
+Secrets pour les données sensibles
+Ingress pour l'exposition externe
+Jobs pour l'initialisation des bases de données
+Flux de Communication
+Les utilisateurs accèdent à l'application via le frontend web
+Le frontend communique avec les APIs backend
+Les APIs interagissent avec les services de données (SQL Server, Redis)
+Les APIs communiquent entre elles via RabbitMQ pour les opérations asynchrones
+Fonctionnalités Principales
+Déploiement orchestré de microservices via Helm
+Gestion sécurisée des communications avec TLS auto-signé incluant Subject Alternative Names (SAN)
+Automatisation de la génération et du renouvellement des certificats TLS
+Exposition des services via un ingress NGINX configuré pour HTTPS
+Scripts d'automatisation pour faciliter le déploiement et la maintenance
+Initialisation automatisée des bases de données
+Gestion des dépendances entre services
+Démarche et Méthodologie
+Exploration du projet : Analyse des dossiers, charts Helm, scripts et manifests Kubernetes pour comprendre la structure et les dépendances.
+Préparation de l'environnement : Installation et configuration des outils nécessaires (kubectl, helm, bash), mise en place d'un cluster Kubernetes.
+Déploiement initial : Utilisation de Helm pour installer ou mettre à jour la release dotnetgigs.
+Gestion TLS : Exécution du script regenerate-tls-and-restart-ingress.sh pour générer un certificat TLS avec SAN, création du secret Kubernetes, et redémarrage de l'ingress controller.
+Diagnostic des problèmes : Identification et résolution des problèmes de connectivité, base de données et communication entre services.
+Automatisation : Création de jobs Kubernetes pour l'initialisation des bases de données et mise en place d'initContainers pour gérer les dépendances entre services.
+Validation : Vérification de l'état des pods et ingress, test d'accès à l'application via des appels API directs.
+Documentation : Rédaction de guides de test et rapports pour assurer la reproductibilité.
+Problèmes Rencontrés et Solutions
+1. Gestion des certificats TLS
+Problème : Les navigateurs bloquaient l'accès à l'application à cause d'un certificat TLS auto-signé sans SAN, générant des erreurs de sécurité.
+
+Solution : Création d'un script shell pour générer un certificat TLS auto-signé incluant les SAN nécessaires (web.localhost), création d'un secret Kubernetes avec ce certificat, et redémarrage automatique de l'ingress controller pour appliquer le nouveau certificat.
+
+2. Coordination Helm et Kubernetes
+Problème : Assurer que les charts Helm reflètent correctement les configurations Kubernetes et que les mises à jour se font sans interruption.
+
+Solution : Utilisation de la commande helm upgrade --install pour gérer les déploiements de manière déclarative et idempotente, facilitant les mises à jour.
+
+3. Configuration DNS locale
+Problème : Le domaine web.localhost n'était pas résolu vers l'IP du cluster, empêchant l'accès à l'application.
+
+Solution : Ajout manuel d'une entrée dans le fichier hosts du système pour mapper web.localhost à l'adresse IP du cluster Kubernetes.
+
+4. Erreurs 500 dans l'API Jobs
+Problème : L'API Jobs retournait des erreurs 500 (Internal Server Error) car elle ne pouvait pas se connecter à la base de données SQL Server. Le message d'erreur indiquait : "Cannot open database 'dotnetgigs.jobs' requested by the login. The login failed. Login failed for user 'sa'".
+
+Solution : 1. Déploiement d'un serveur SQL Server dans le cluster Kubernetes 2. Création d'un ConfigMap contenant les scripts d'initialisation SQL 3. Création manuelle des bases de données requises (dotnetgigs.jobs, dotnetgigs.applicants) 4. Exécution des scripts pour créer les tables et insérer les données initiales 5. Mise à jour des chaînes de connexion dans les déploiements API pour pointer vers le bon service SQL
+
+5. Problèmes de connectivité réseau
+Problème : Les pods ne pouvaient pas se connecter à Internet ou au registre d'images Microsoft Container Registry (mcr.microsoft.com), ce qui empêchait le téléchargement des images nécessaires.
+
+Solution : Mise en place d'un pod de diagnostic réseau pour identifier les problèmes de connectivité et ajustement des règles réseau du cluster pour permettre l'accès aux registres d'images externes.
+
+6. Dépendances entre services
+Problème : Les services démarraient dans un ordre aléatoire, ce qui provoquait des erreurs lorsqu'un service tentait de se connecter à un autre qui n'était pas encore prêt.
+
+Solution : Introduction d'initContainers dans les déploiements pour s'assurer que chaque service attend que ses dépendances (base de données, RabbitMQ, Redis) soient prêtes avant de démarrer.
+
+7. Initialisation automatique des bases de données
+Problème : À chaque redémarrage du cluster, les bases de données perdaient leurs données, nécessitant une réinitialisation manuelle.
+
+Solution : Création d'un job Kubernetes qui s'exécute automatiquement pour initialiser les bases de données SQL Server au démarrage du cluster, garantissant que les schémas et données de base sont toujours disponibles.
+
+Mise en place de l'initialisation automatique des bases de données
+Pour résoudre le problème de persistance et d'initialisation des bases de données, nous avons implémenté une solution en deux parties :
+
+1. Job d'initialisation SQL
+Nous avons créé un job Kubernetes (sql-init-job.yaml) qui s'exécute après le démarrage de SQL Server et : - Vérifie que SQL Server est disponible - Crée les bases de données nécessaires si elles n'existent pas - Crée les tables requises pour chaque base de données - Insère les données initiales
+
+Extrait de la définition du job :
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sql-init-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: sqlcmd
+        image: mcr.microsoft.com/mssql-tools
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Executing initialization script..."
+          /opt/mssql-tools/bin/sqlcmd -S sqldata -U sa -P "Pass@word" -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'dotnetgigs.jobs') BEGIN CREATE DATABASE [dotnetgigs.jobs]; END;"
+          # [Suite des commandes d'initialisation...]
+2. Init Containers pour les APIs
+Pour chaque déploiement d'API, nous avons ajouté des initContainers qui vérifient que les services dont ils dépendent sont disponibles avant de démarrer :
+
+initContainers:
+- name: wait-for-sqlserver
+  image: busybox:1.28
+  command: ['sh', '-c', 'until nslookup sqldata; do echo waiting for sqlserver; sleep 2; done;']
+- name: wait-for-jobs-database
+  image: mcr.microsoft.com/mssql-tools
+  command: ["/bin/bash", "-c"]
+  args: 
+    - until /opt/mssql-tools/bin/sqlcmd -S sqldata -U sa -P "Pass@word" -Q "SELECT COUNT(*) FROM dotnetgigs.jobs.INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Jobs'" -h -1 | grep -q "1"; do echo waiting for Jobs table; sleep 5; done;
+Cette approche garantit que les services démarrent dans un ordre logique et que chaque service attend que ses dépendances soient prêtes avant de démarrer.
+
+Résultats
+Déploiement réussi de l'application multi-microservices dans Kubernetes
+Accès sécurisé via HTTPS sans erreurs de certificat grâce aux certificats TLS avec SAN
+Initialisation automatique des bases de données au démarrage du cluster
+Gestion appropriée des dépendances entre services
+Résolution des problèmes de connectivité réseau
+Processus reproductible et documenté pour faciliter la prise en main par d'autres utilisateurs
+Améliorations Futures
+Intégration d'un gestionnaire de certificats automatique (ex: cert-manager) pour simplifier la gestion TLS
+Mise en place d'un pipeline CI/CD pour automatiser les déploiements et tests
+Ajout de tests automatisés pour valider le bon fonctionnement des microservices
+Utilisation de PersistentVolumes pour assurer une persistance des données plus robuste
+Mise en place d'un système de monitoring et alerting (Prometheus, Grafana) (fait)
+Configuration de politiques de réseau (NetworkPolicy) pour sécuriser les communications entre services
+Automatisation complète du déploiement avec un script unique
+Conclusion
+Ce projet a permis de déployer une application distribuée sécurisée dans Kubernetes, avec une gestion simplifiée grâce à Helm et des scripts d'automatisation. Les difficultés rencontrées, notamment au niveau de la connexion à la base de données et des problèmes réseau, ont été surmontées par des solutions pragmatiques.
+
+La mise en place de l'initialisation automatique des bases de données et la gestion des dépendances entre services ont considérablement amélioré la fiabilité et la résilience de l'application. La documentation fournie assure une bonne prise en main pour les futurs utilisateurs.
+
+L'expérience acquise à travers ce projet démontre l'importance d'une approche méthodique dans le déploiement d'applications complexes sur Kubernetes, ainsi que la nécessité de bien gérer les interconnexions entre les différents microservices.
+
+Annexes
+Scripts d'automatisation dans le dossier scripts/
+Charts Helm dans helm-charts/dotnetgigs/
+Manifests Kubernetes dans k8s-config/deployments/
+Guides de test dans README-TESTING.md et README-TESTING-HELM.md
+Fichiers de déploiement et configurations générés pour résoudre les problèmes identifiés
