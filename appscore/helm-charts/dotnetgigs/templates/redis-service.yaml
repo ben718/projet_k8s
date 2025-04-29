@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-redis
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: redis
+spec:
+  type: {{ .Values.services.redis.type }}
+  ports:
+  - port: {{ .Values.services.redis.port }}
+    targetPort: 6379
+  selector:
+    {{- include "dotnetgigs.selectorLabels" . | nindent 4 }}
+    app: redis

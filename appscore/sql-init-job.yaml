@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sql-init-job
+  labels:
+    app: sql-init-job
+spec:
+  ttlSecondsAfterFinished: 100
+  template:
+    spec:
+      containers:
+      - name: sqlcmd
+        image: mcr.microsoft.com/mssql-tools
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Waiting for SQL Server to be ready..."
+          sleep 30
+          echo "Executing initialization script..."
+          /opt/mssql-tools/bin/sqlcmd -S sqldata -U sa -P "Pass@word" -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'dotnetgigs.jobs') BEGIN CREATE DATABASE [dotnetgigs.jobs]; END; IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'dotnetgigs.applicants') BEGIN CREATE DATABASE [dotnetgigs.applicants]; END; IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'dotnetgigs.identity') BEGIN CREATE DATABASE [dotnetgigs.identity]; END;"
+          /opt/mssql-tools/bin/sqlcmd -S sqldata -U sa -P "Pass@word" -d "dotnetgigs.jobs" -Q "IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Jobs') BEGIN CREATE TABLE Jobs (JobId INT PRIMARY KEY IDENTITY(1,1), Title NVARCHAR(255) NOT NULL, Description NVARCHAR(MAX), Company NVARCHAR(255), Location NVARCHAR(255), Salary DECIMAL(18,2), PostedDate DATETIME DEFAULT GETDATE()); INSERT INTO Jobs (Title, Description, Company, Location, Salary) VALUES ('Software Developer', 'Developing awesome software', 'Tech Corp', 'Remote', 75000), ('Data Scientist', 'Analyzing data for insights', 'Data Inc', 'New York', 85000), ('DevOps Engineer', 'Managing infrastructure', 'Cloud Solutions', 'San Francisco', 90000); END"
+          /opt/mssql-tools/bin/sqlcmd -S sqldata -U sa -P "Pass@word" -d "dotnetgigs.jobs" -Q "IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'JobApplicants') BEGIN CREATE TABLE JobApplicants (Id INT PRIMARY KEY IDENTITY(1,1), JobId INT NOT NULL, ApplicantId INT NOT NULL, Name NVARCHAR(255) NOT NULL, Email NVARCHAR(255) NOT NULL, ApplyDate DATETIME NOT NULL, Status INT NOT NULL); END"
+          /opt/mssql-tools/bin/sqlcmd -S sqldata -U sa -P "Pass@word" -d "dotnetgigs.applicants" -Q "IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Applicants') BEGIN CREATE TABLE Applicants (ApplicantId INT PRIMARY KEY IDENTITY(1,1), Name NVARCHAR(255) NOT NULL, Email NVARCHAR(255) NOT NULL, Address NVARCHAR(255), PhoneNo NVARCHAR(50)); INSERT INTO Applicants (Name, Email, Address, PhoneNo) VALUES ('John Doe', 'john.doe@example.com', '123 Main St, Anytown', '555-123-4567'), ('Jane Smith', 'jane.smith@example.com', '456 Oak Ave, Somewhere', '555-987-6543'), ('Alex Johnson', 'alex.j@example.com', '789 Pine Rd, Elsewhere', '555-456-7890'); END"
+          /opt/mssql-tools/bin/sqlcmd -S sqldata -U sa -P "Pass@word" -d "dotnetgigs.applicants" -Q "IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ApplicantSubmissions') BEGIN CREATE TABLE ApplicantSubmissions (Id INT PRIMARY KEY IDENTITY(1,1), JobId INT NOT NULL, ApplicantId INT NOT NULL, Title NVARCHAR(255), SubmissionDate DATETIME DEFAULT GETDATE()); END"
+          echo "Database initialization complete."
+      restartPolicy: OnFailure
+      initContainers:
+      - name: init-sqlserver
+        image: busybox:1.28
+        command: ['sh', '-c', 'until nslookup sqldata; do echo waiting for sqldata; sleep 2; done;']

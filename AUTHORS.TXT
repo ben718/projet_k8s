@@ -1,0 +1,53 @@
+Mvouama Ben : Conteneurisation (Docker) + Dépôt d'images
+
+    Analyse complète du docker-compose.yml fourni pour comprendre les dépendances.
+
+    Préparer/adapter les Dockerfile des applications : web, applicants.api, identity.api, jobs.api, sql.data, rabbitmq.
+
+    Création des images Docker pour toutes les apps.
+
+    Pousser les images sur un registry privé (Docker Hub ou Azure Container Registry).
+
+    Documenter les commandes de build et push.
+	
+Gapotih-elly Régis : Déploiement Kubernetes - Pods, Services, ConfigMaps, Secrets
+
+ Écrire les manifests Kubernetes (yaml) pour :
+
+    Déploiements (Deployment)
+
+    Services (Service)
+
+    ConfigMaps et Secrets nécessaires pour les variables d'environnement (connexions BDD, RabbitMQ...).
+
+Configurer les ressources (requests et limits) pour chaque pod (CPU/Mémoire).
+
+Configurer les affinités entre pods selon les spécifications
+
+Etienne Phillip :Monitoring, Logging, SSL, Sondes de vie
+
+    Installer Prometheus sur le cluster pour la supervision (avec metrics-server et kube-state-metrics).
+
+    Installer la stack EFK/ELK pour la collecte des logs.
+
+    Mettre en place les readiness et liveness probes pour toutes les apps.
+
+    Créer un certificat SSL auto-signé pour le cluster.
+
+    Configurer les Ingress pour exposer uniquement ce qui doit l’être (en HTTPS uniquement).
+	
+Mouaya Anouk : Créer un chart Helm complet incluant :
+
+    Déploiements
+
+    Services
+
+    Ingress
+
+Organiser le chart proprement (templates, values.yaml).
+
+Finaliser le Ingress Controller (pas demandé explicitement, mais l'Ingress seul est demandé, donc simple Ingress sans controller).
+
+S'assurer que le déploiement est reproductible avec Helm sur tout cluster Kubernetes.
+
+Aider à la préparation de la soutenance et de la documentation finale (README, explication du projet).

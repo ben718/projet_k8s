@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jobs-api-config
+data:
+  appsettings.json: |
+    {
+      "ConnectionStrings": {
+        "DefaultConnection": "Server=sqldata;Database=dotnetgigs.jobs;User Id=sa;Password=Pass@word"
+      },
+      "RabbitMQ": {
+        "Host": "rabbitmq",
+        "Username": "guest",
+        "Password": "guest",
+        "VirtualHost": "/",
+        "Port": 5672,
+        "AutomaticRecoveryEnabled": true,
+        "RequestedHeartbeat": 30
+      },
+      "Logging": {
+        "IncludeScopes": false,
+        "Debug": {
+          "LogLevel": {
+            "Default": "Warning"
+          }
+        },
+        "Console": {
+          "LogLevel": {
+            "Default": "Warning"
+          }
+        }
+      }
+    }

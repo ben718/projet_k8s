@@ -1,0 +1,10 @@
+apiVersion: v2
+name: dotnetgigs
+description: Helm chart pour le déploiement de l'application DotNetGigs
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: metrics-server
+    version: 0.1.0
+    repository: "file://../metrics-server"

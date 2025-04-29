@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-applicants-api
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: applicants-api
+spec:
+  type: {{ .Values.services.applicantsApi.type }}
+  ports:
+  - port: {{ .Values.services.applicantsApi.port }}
+    targetPort: 80
+  selector:
+    {{- include "dotnetgigs.selectorLabels" . | nindent 4 }}
+    app: applicants-api

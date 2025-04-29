@@ -1,0 +1,160 @@
+version: "3.9"
+
+services:
+  sql.data:
+    image: mcr.microsoft.com/mssql/server:2017-latest
+    environment:
+      - SA_PASSWORD=Pass@word
+      - ACCEPT_EULA=Y
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Pass@word" -Q "SELECT 1" || exit 1
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - sql_data:/var/opt/mssql
+      - ./Database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+
+  user.data:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: redis-cli ping || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_VHOST=/
+      - RABBITMQ_ALLOW_GUEST_LOGIN=true
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: always
+
+  webmvc:
+    image: rioall77/webmvc:latest
+    build:
+      context: .
+      dockerfile: Web/Dockerfile
+    depends_on:
+      applicants.api:
+        condition: service_healthy
+      jobs.api:
+        condition: service_healthy
+      identity.api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - IdentityUrl=http://identity.api
+      - ApplicantsUrl=http://applicants.api
+      - JobsUrl=http://jobs.api
+    healthcheck:
+      test: curl --fail http://localhost:80/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  applicants.api:
+    image: rioall77/applicants.api:latest
+    build:
+      context: .
+      dockerfile: Services/Applicants.Api/Dockerfile
+    depends_on:
+      - rabbitmq
+      - sql.data
+    ports:
+      - "8081:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionString=Server=sql.data;Database=dotnetgigs.applicants;User Id=sa;Password=Pass@word
+      - EventBusConnection=rabbitmq
+      - EventBusUserName=guest
+      - EventBusPassword=guest
+      - EventBusRetryCount=5
+    healthcheck:
+      test: curl --fail http://localhost:80/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  jobs.api:
+    image: rioall77/jobs.api:latest
+    build:
+      context: .
+      dockerfile: Services/Jobs.Api/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      sql.data:
+        condition: service_healthy
+    ports:
+      - "8083:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionString=Server=sql.data;Database=dotnetgigs.jobs;User Id=sa;Password=Pass@word
+      - EventBusConnection=rabbitmq
+      - EventBusUserName=guest
+      - EventBusPassword=guest
+      - EventBusRetryCount=5
+    healthcheck:
+      test: curl --fail http://localhost:80/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  identity.api:
+    image: rioall77/identity.api:latest
+    build:
+      context: .
+      dockerfile: Services/Identity.Api/Dockerfile
+    depends_on:
+      - rabbitmq
+      - user.data
+    ports:
+      - "8084:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionString=user.data
+      - EventBusConnection=rabbitmq
+      - EventBusUserName=guest
+      - EventBusPassword=guest
+      - EventBusRetryCount=5
+    healthcheck:
+      test: curl --fail http://localhost:80/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  rabbitmq_data:
+  sql_data:

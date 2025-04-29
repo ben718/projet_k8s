@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-sql-data
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: sql-data
+spec:
+  replicas: {{ .Values.replicaCount.sqlData }}
+  selector:
+    matchLabels:
+      {{- include "dotnetgigs.selectorLabels" . | nindent 6 }}
+      app: sql-data
+  template:
+    metadata:
+      labels:
+        {{- include "dotnetgigs.selectorLabels" . | nindent 8 }}
+        app: sql-data
+    spec:
+      containers:
+        - name: mssql
+          image: "mcr.microsoft.com/{{ .Values.images.sqlData.repository }}:{{ .Values.images.sqlData.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 1433
+          env:
+            - name: ACCEPT_EULA
+              value: {{ .Values.env.sqlData.ACCEPT_EULA | quote }}
+            - name: SA_PASSWORD
+              value: {{ .Values.env.sqlData.SA_PASSWORD | quote }}
+          resources:
+            {{- toYaml .Values.resources.sqlData | nindent 12 }}
+            

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-rabbitmq
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: rabbitmq
+spec:
+  type: {{ .Values.services.rabbitmq.type }}
+  ports:
+  {{- range .Values.services.rabbitmq.ports }}
+  - name: {{ .name }}
+    port: {{ .port }}
+    targetPort: {{ .port }}
+  {{- end }}
+  selector:
+    {{- include "dotnetgigs.selectorLabels" . | nindent 4 }}
+    app: rabbitmq

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mssql-init-applicants-script
+  namespace: default
+data:
+  init-applicants.sql: |
+    CREATE DATABASE [dotnetgigs.applicants];
+    GO
+    USE [dotnetgigs.applicants];
+    GO
+    CREATE LOGIN [sa] WITH PASSWORD = 'Pass@word';
+    GO
+    CREATE USER [sa] FOR LOGIN [sa];
+    GO
+    ALTER ROLE [db_owner] ADD MEMBER [sa];
+    GO

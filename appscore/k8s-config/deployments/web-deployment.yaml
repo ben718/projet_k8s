@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnetgigs-web
+  labels:
+    app: webmvc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webmvc
+  template:
+    metadata:
+      labels:
+        app: webmvc
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      containers:
+      - name: web
+        image: rioall77/webmvc:k8s-api-fix
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 5

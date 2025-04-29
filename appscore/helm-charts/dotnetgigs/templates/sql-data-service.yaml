@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-sql-data
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: sql-data
+spec:
+  type: {{ .Values.services.sqlData.type }}
+  ports:
+  - port: {{ .Values.services.sqlData.port }}
+    targetPort: 1433
+  selector:
+    {{- include "dotnetgigs.selectorLabels" . | nindent 4 }}
+    app: sql-data

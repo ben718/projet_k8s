@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mssql-init-script
+  namespace: default
+data:
+  init.sql: |
+    -- Attendre que SQL Server soit prêt
+    :setvar SLEEP_TIME "30"
+    PRINT 'Attente de ' + $(SLEEP_TIME) + ' secondes pour que SQL Server démarre...'
+    WAITFOR DELAY '00:00:' + $(SLEEP_TIME);
+    PRINT 'Démarrage des scripts d''initialisation...';
+
+    -- Vérifier si la base de données existe déjà
+    IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'dotnetgigs.jobs')
+    BEGIN
+        PRINT 'Création de la base de données dotnetgigs.jobs...';
+        CREATE DATABASE [dotnetgigs.jobs];
+    END
+    GO
+
+    USE [dotnetgigs.jobs];
+    GO
+
+    -- Réinitialiser le mot de passe utilisateur
+    ALTER LOGIN [sa] WITH PASSWORD = 'Pass@word';
+    GO
+
+    -- Vérifier et créer l'utilisateur si nécessaire
+    IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = 'sa')
+    BEGIN
+        PRINT 'Création de l''utilisateur sa dans la base de données...';
+        CREATE USER [sa] FOR LOGIN [sa];
+    END
+    GO
+
+    -- Ajouter l'utilisateur au rôle db_owner
+    ALTER ROLE [db_owner] ADD MEMBER [sa];
+    GO
+
+    -- Création d'une table d'exemple si elle n'existe pas
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Jobs')
+    BEGIN
+        PRINT 'Création de la table Jobs...';
+        CREATE TABLE Jobs (
+            Id INT IDENTITY(1,1) PRIMARY KEY,
+            Title NVARCHAR(100) NOT NULL,
+            Description NVARCHAR(500) NOT NULL,
+            Company NVARCHAR(100) NOT NULL,
+            Location NVARCHAR(100) NOT NULL,
+            PostedDate DATETIME NOT NULL DEFAULT GETDATE()
+        );
+
+        -- Insertion de données d'exemple
+        INSERT INTO Jobs (Title, Description, Company, Location, PostedDate)
+        VALUES 
+            ('Développeur .NET', 'Développement d''applications web avec ASP.NET Core', 'DotNetGigs', 'Paris', GETDATE()),
+            ('DevOps Engineer', 'Configuration et maintenance d''infrastructures Kubernetes', 'CloudOps', 'Lyon', GETDATE()),
+            ('Software Architect', 'Conception d''architectures microservices', 'ArchSoft', 'Marseille', GETDATE());
+    END
+    GO
+
+    -- Vérifier si la base de données applicants existe déjà, sinon la créer
+    IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'dotnetgigs.applicants')
+    BEGIN
+        PRINT 'Création de la base de données dotnetgigs.applicants...';
+        CREATE DATABASE [dotnetgigs.applicants];
+    END
+    GO
+
+    USE [dotnetgigs.applicants];
+    GO
+
+    -- Vérifier et créer l'utilisateur si nécessaire
+    IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = 'sa')
+    BEGIN
+        PRINT 'Création de l''utilisateur sa dans la base de données applicants...';
+        CREATE USER [sa] FOR LOGIN [sa];
+    END
+    GO
+
+    -- Ajouter l'utilisateur au rôle db_owner
+    ALTER ROLE [db_owner] ADD MEMBER [sa];
+    GO
+
+    -- Vérifier si la base de données identity existe déjà, sinon la créer
+    IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'dotnetgigs.identity')
+    BEGIN
+        PRINT 'Création de la base de données dotnetgigs.identity...';
+        CREATE DATABASE [dotnetgigs.identity];
+    END
+    GO
+
+    USE [dotnetgigs.identity];
+    GO
+
+    -- Vérifier et créer l'utilisateur si nécessaire
+    IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = 'sa')
+    BEGIN
+        PRINT 'Création de l''utilisateur sa dans la base de données identity...';
+        CREATE USER [sa] FOR LOGIN [sa];
+    END
+    GO
+
+    -- Ajouter l'utilisateur au rôle db_owner
+    ALTER ROLE [db_owner] ADD MEMBER [sa];
+    GO
+
+    PRINT 'Scripts d''initialisation terminés avec succès.';
+    GO

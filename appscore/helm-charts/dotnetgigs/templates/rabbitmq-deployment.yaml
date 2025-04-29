@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-rabbitmq
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: rabbitmq
+spec:
+  replicas: {{ .Values.replicaCount.rabbitmq }}
+  selector:
+    matchLabels:
+      {{- include "dotnetgigs.selectorLabels" . | nindent 6 }}
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        {{- include "dotnetgigs.selectorLabels" . | nindent 8 }}
+        app: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: "{{ if .Values.images.rabbitmq.useGlobalRegistry }}{{ .Values.global.registry }}{{ end }}{{ .Values.images.rabbitmq.repository }}:{{ .Values.images.rabbitmq.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 5672
+          name: amqp
+        - containerPort: 15672
+          name: management
+        resources:
+          {{- toYaml .Values.resources.rabbitmq | nindent 10 }}

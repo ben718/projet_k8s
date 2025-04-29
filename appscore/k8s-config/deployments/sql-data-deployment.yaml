@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql-data
+  labels:
+    app: sql-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sql-data
+  template:
+    metadata:
+      labels:
+        app: sql-data
+    spec:
+      containers:
+      - name: mssql
+        image: mcr.microsoft.com/mssql/server:2017-latest
+        ports:
+        - containerPort: 1433
+        env:
+        - name: ACCEPT_EULA
+          value: "Y"
+        - name: SA_PASSWORD
+          value: "Pass@word"
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        volumeMounts:
+        - name: mssql-data
+          mountPath: /var/opt/mssql
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+        - name: init-applicants-script
+          mountPath: /docker-entrypoint-initdb-applicants.d
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Pass@word" -Q "SELECT 1" || exit 1
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Pass@word" -Q "SELECT 1" || exit 1
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: mssql-data
+        persistentVolumeClaim:
+          claimName: mssql-data-pvc
+      - name: init-script
+        configMap:
+          name: mssql-init-script
+          defaultMode: 0755
+      - name: init-applicants-script
+        configMap:
+          name: mssql-init-applicants-script
+          defaultMode: 0755

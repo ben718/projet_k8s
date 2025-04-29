@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobs-api
+  labels:
+    app: jobs-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobs-api
+  template:
+    metadata:
+      labels:
+        app: jobs-api
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      containers:
+      - name: jobs-api
+        image: rioall77/jobs.api:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        - name: ConnectionString
+          value: "Server=dotnetgigs-sql-data;Database=dotnetgigs.jobs;User Id=sa;Password=Pass@word"
+        - name: EventBusConnection
+          value: "dotnetgigs-rabbitmq"
+        - name: HostRabbitmq
+          value: "dotnetgigs-rabbitmq"
+        - name: EventBusUserName
+          value: "guest"
+        - name: EventBusPassword
+          value: "guest"
+        - name: EventBusRetryCount
+          value: "5"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 5

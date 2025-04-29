@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-redis
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: redis
+spec:
+  replicas: {{ .Values.replicaCount.redis }}
+  selector:
+    matchLabels:
+      {{- include "dotnetgigs.selectorLabels" . | nindent 6 }}
+      app: redis
+  template:
+    metadata:
+      labels:
+        {{- include "dotnetgigs.selectorLabels" . | nindent 8 }}
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: "{{ if .Values.images.redis.useGlobalRegistry }}{{ .Values.global.registry }}{{ end }}{{ .Values.images.redis.repository }}:{{ .Values.images.redis.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 6379
+        resources:
+          {{- toYaml .Values.resources.redis | nindent 10 }}

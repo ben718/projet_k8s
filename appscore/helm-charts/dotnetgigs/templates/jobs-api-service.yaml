@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-jobs-api
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: jobs-api
+spec:
+  type: {{ .Values.services.jobsApi.type }}
+  ports:
+  - port: {{ .Values.services.jobsApi.port }}
+    targetPort: 80
+  selector:
+    {{- include "dotnetgigs.selectorLabels" . | nindent 4 }}
+    app: jobs-api

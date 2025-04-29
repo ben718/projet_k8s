@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "dotnetgigs.fullname" . }}-jobs-api
+  labels:
+    {{- include "dotnetgigs.labels" . | nindent 4 }}
+    app: jobs-api
+spec:
+  replicas: {{ .Values.replicaCount.jobsApi }}
+  selector:
+    matchLabels:
+      {{- include "dotnetgigs.selectorLabels" . | nindent 6 }}
+      app: jobs-api
+  template:
+    metadata:
+      labels:
+        {{- include "dotnetgigs.selectorLabels" . | nindent 8 }}
+        app: jobs-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+    spec:
+      {{- if .Values.affinity.enabled }}
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - sql-data
+              topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      containers:
+      - name: jobs-api
+        image: "{{ .Values.global.registry }}{{ .Values.images.jobsApi.repository }}:{{ .Values.images.jobsApi.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        - name: ConnectionString
+          value: {{ .Values.env.jobsApi.ConnectionString | quote }}
+        - name: HostRabbitmq
+          value: {{ .Values.env.jobsApi.HostRabbitmq | quote }}
+        - name: EventBusConnection
+          value: {{ .Values.env.jobsApi.HostRabbitmq | quote }}
+        - name: EventBusUserName
+          value: "guest"
+        - name: EventBusPassword
+          value: "guest"
+        - name: EventBusRetryCount
+          value: "5"
+        resources:
+          {{- toYaml .Values.resources.jobsApi | nindent 10 }}
+        {{- if .Values.probes.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+        {{- end }}

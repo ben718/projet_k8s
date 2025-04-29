@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: applicants-api
+  labels:
+    app: applicants-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: applicants-api
+  template:
+    metadata:
+      labels:
+        app: applicants-api
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      initContainers:
+      - name: wait-for-sqlserver
+        image: busybox:1.28
+        command:
+          - sh
+          - -c
+          - until nslookup dotnetgigs-sql-data; do echo waiting for sqlserver; sleep 2; done;
+      - name: wait-for-applicants-database
+        image: mcr.microsoft.com/mssql-tools:1.0.0
+        command:
+          - /bin/bash
+          - -c
+        args:
+          - until /opt/mssql-tools/bin/sqlcmd -S dotnetgigs-sql-data -U sa -P "Pass@word" -Q "SELECT COUNT(*) FROM dotnetgigs.applicants.INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Applicants'" -h -1 | grep -q "1"; do echo waiting for Applicants table; sleep 5; done;
+        imagePullPolicy: IfNotPresent
+      containers:
+      - name: applicants-api
+        image: rioall77/applicants.api:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        - name: ConnectionString
+          value: "Server=dotnetgigs-sql-data;Database=dotnetgigs.applicants;User Id=sa;Password=Pass@word"
+        - name: EventBusConnection
+          value: "dotnetgigs-rabbitmq"
+        - name: HostRabbitmq
+          value: "dotnetgigs-rabbitmq"
+        - name: EventBusUserName
+          value: "guest"
+        - name: EventBusPassword
+          value: "guest"
+        - name: EventBusRetryCount
+          value: "5"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 5

@@ -1,0 +1,172 @@
+# Configuration par défaut pour le chart Helm DotNetGigs
+
+# Configuration globale
+global:
+  registry: "rioall77/"
+  imagePullPolicy: IfNotPresent
+  namespace: default  # Changé en "default" puisque c'est là où vos pods sont déployés actuellement
+
+# Configuration des images
+images:
+  web:
+    repository: webmvc
+    tag: latest
+  applicantsApi:
+    repository: applicants.api
+    tag: latest
+  jobsApi:
+    repository: jobs.api
+    tag: latest
+  identityApi:
+    repository: identity.api
+    tag: k8s-redis-fix  # Mise à jour pour utiliser notre nouvelle image avec les corrections Redis
+  sqlData:
+    repository: mssql/server
+    tag: 2017-latest
+  redis:
+    repository: redis
+    tag: latest
+    useGlobalRegistry: false  # Ne pas utiliser le registry global pour Redis
+  rabbitmq:
+    repository: rabbitmq
+    tag: 3-management
+    useGlobalRegistry: false  # Ne pas utiliser le registry global pour RabbitMQ
+
+# Configuration des réplicas
+replicaCount:
+  web: 1
+  applicantsApi: 1
+  jobsApi: 1
+  identityApi: 1
+  sqlData: 1
+  redis: 1
+  rabbitmq: 1
+
+# Configuration des ressources
+resources:
+  web:
+    requests:
+      cpu: 4m
+      memory: 300Mi
+    limits:
+      cpu: 200m
+      memory: 500Mi
+  applicantsApi:
+    requests:
+      cpu: 4m
+      memory: 200Mi
+    limits:
+      cpu: 200m
+      memory: 500Mi
+  jobsApi:
+    requests:
+      cpu: 4m
+      memory: 200Mi
+    limits:
+      cpu: 200m
+      memory: 500Mi
+  identityApi:
+    requests:
+      cpu: 4m
+      memory: 100Mi
+    limits:
+      cpu: 100m
+      memory: 300Mi
+  sqlData:
+    requests:
+      cpu: 4m
+      memory: 300Mi
+    limits:
+      cpu: 500m
+      memory: 800Mi
+  redis:
+    requests:
+      cpu: 4m
+      memory: 100Mi
+    limits:
+      cpu: 100m
+      memory: 200Mi
+  rabbitmq:
+    requests:
+      cpu: 4m
+      memory: 200Mi
+    limits:
+      cpu: 200m
+      memory: 500Mi
+
+# Configuration des services
+services:
+  web:
+    type: ClusterIP
+    port: 80
+  applicantsApi:
+    type: ClusterIP
+    port: 80
+  jobsApi:
+    type: ClusterIP
+    port: 80
+  identityApi:
+    type: ClusterIP
+    port: 80
+  sqlData:
+    type: ClusterIP
+    port: 1433
+  redis:
+    type: ClusterIP
+    port: 6379
+  rabbitmq:
+    type: ClusterIP
+    ports:
+      - name: amqp
+        port: 5672
+      - name: management
+        port: 15672
+
+# Configuration de l'Ingress
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  hosts:
+    - host: dotnetgigs.local
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: web
+          servicePort: 80
+  tls:
+    - secretName: dotnetgigs-tls
+      hosts:
+        - dotnetgigs.local
+
+# Configuration des variables d'environnement
+env:
+  applicantsApi:
+    ConnectionString: "Server=dotnetgigs-sql-data;User=sa;Password=Pass@word;Database=dotnetgigs.applicants;"
+    HostRabbitmq: "dotnetgigs-rabbitmq"
+  jobsApi:
+    ConnectionString: "Server=dotnetgigs-sql-data;User=sa;Password=Pass@word;Database=dotnetgigs.jobs;"
+    HostRabbitmq: "dotnetgigs-rabbitmq"
+  identityApi:
+    RedisHost: "dotnetgigs-redis:6379"  # Format explicite avec port pour plus de robustesse
+    ConnectionString: "dotnetgigs-redis"  # Nom correct du service Redis dans Kubernetes
+    EventBusConnection: "dotnetgigs-rabbitmq"  # Nom correct du service RabbitMQ dans Kubernetes
+  sqlData:
+    SA_PASSWORD: "Pass@word"
+    ACCEPT_EULA: "Y"
+
+# Configuration des sondes de santé
+probes:
+  enabled: true
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 15
+
+# Configuration des règles d'affinité
+affinity:
+  enabled: true
