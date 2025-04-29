@@ -9,10 +9,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - web.localhost
+    - https://projet-k8s.vercel.app
     secretName: dotnetgigs-tls
   rules:
-  - host: web.localhost
+  - host: https://projet-k8s.vercel.app
     http:
       paths:
       - path: /
